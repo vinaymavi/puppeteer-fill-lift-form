@@ -138,3 +138,5 @@ dist
 captcha.*
 screenshot-*
 eng.*
+
+error-form*

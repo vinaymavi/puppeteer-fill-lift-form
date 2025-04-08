@@ -1,47 +1,192 @@
 import puppeteer, { Browser, Page } from "puppeteer";
 import * as tesseract from "tesseract.js";
 import fs from "fs";
+import csv from "csv-parser";
+import path from "path";
 
 const loginUrl = "https://updeslift.org/Account/login";
 const username = "8802759959";
 const password = "Bindal@123";
 const selectType = "Public";
 
+// Define types for the form data
+interface LiftFormData {
+  // Owner details
+  ownerName: string;
+  ownerLocalHouseNo: string;
+  ownerLocalBuildingNo: string;
+  ownerLocalLandmark: string;
+  ownerLocalLocality: string;
+  ownerLocalPincode: string;
+  ownerPermanentHouseNo: string;
+  ownerPermanentBuilding: string;
+  ownerPermanentLandmark: string;
+  ownerPermanentLocality: string;
+  ownerPermanentPincode: string;
+  ownerEmail: string;
+  ownerMobile: string;
+
+  // Agent details
+  agentName: string;
+  agentLocalHouseNo: string;
+  agentLocalBuildingNo: string;
+  agentLocalLandmark: string;
+  agentLocalLocality: string;
+  agentLocalPincode: string;
+  agentPermanentHouseNo: string;
+  agentPermanentBuilding: string;
+  agentPermanentLandmark: string;
+  agentPermanentLocality: string;
+  agentPermanentPincode: string;
+  agentEmail: string;
+  agentMobile: string;
+
+  // Lift details
+  premiseHouseNo: string;
+  premiseBuildingNo: string;
+  premiseLandmark: string;
+  premiseLocality: string;
+  premisePincode: string;
+  premiseType: string;
+
+  // Make details
+  liftMake: string;
+  liftModel: string;
+  liftWeight: string;
+  liftPersons: string;
+  manufacturerName: string;
+}
+
 let browser: Browser;
 (async () => {
   console.log("Starting browser");
   browser = await puppeteer.launch({ headless: true });
   const page = await getPage(loginUrl);
-  let isLogin = await login(page);
-  if (!isLogin) {
+
+  // Try to login up to 5 times
+  let isLogin = false;
+  for (let attempt = 1; attempt <= 5; attempt++) {
     isLogin = await login(page);
+    if (isLogin) break;
+    console.log(`Login attempt ${attempt} failed, trying again...`);
   }
+
   if (!isLogin) {
-    isLogin = await login(page);
+    console.error("Failed to login after multiple attempts");
+    await browser.close();
+    return;
   }
-  if (!isLogin) {
-    isLogin = await login(page);
+
+  // Read data from CSV file
+  const formDataList = await readFormDataFromCSV("lift_data.csv");
+  console.log(`Loaded ${formDataList.length} forms to process`);
+
+  // Process each form data sequentially
+  for (let i = 0; i < formDataList.length; i++) {
+    const formData = formDataList[i];
+    console.log(`Processing form ${i + 1} of ${formDataList.length}`);
+
+    try {
+      await listAllForms(page);
+      await takePageScreenshot(page);
+      await addLiftPage(page);
+      await takePageScreenshot(page);
+
+      await fillOwnerDetails(page, formData);
+      await takePageScreenshot(page);
+
+      await fillAuthorizedAgentDetails(page, formData);
+      await takePageScreenshot(page);
+
+      await fillLiftDetails(page, formData);
+      await takePageScreenshot(page);
+
+      await fillMakeDetails(page, formData);
+      await takePageScreenshot(page);
+
+      console.log(`Successfully completed form ${i + 1}`);
+    } catch (error) {
+      console.error(`Error processing form ${i + 1}:`, error);
+      // Take a screenshot of the error state
+      await takePageScreenshot(page, `error-form-${i + 1}`);
+      // Continue with the next form
+    }
   }
-  if (!isLogin) {
-    isLogin = await login(page);
-  }
-  await takePageScreenshot(page);
-  await listAllForms(page);
-  await takePageScreenshot(page);
-  await addLiftPage(page);
-  await takePageScreenshot(page);
-  await fillOwnerDetails(page);
-  await takePageScreenshot(page);
-  await fillAuthorizedAgentDetails(page);
-  await takePageScreenshot(page);
-  await fillLiftDetails(page);
-  await takePageScreenshot(page);
-  await fillMakeDetails(page);
-  await takePageScreenshot(page);
+
   // Close the browser
   await browser.close();
   console.log("Browser closed");
 })();
+
+// Function to read form data from CSV
+async function readFormDataFromCSV(
+  csvFilePath: string
+): Promise<LiftFormData[]> {
+  const results: LiftFormData[] = [];
+  const fullPath = path.resolve(csvFilePath);
+
+  return new Promise((resolve, reject) => {
+    fs.createReadStream(fullPath)
+      .pipe(csv())
+      .on("data", (data) => {
+        // Map CSV columns to form data structure
+        const formData: LiftFormData = {
+          // Owner details
+          ownerName: data.ownerName || "",
+          ownerLocalHouseNo: data.ownerLocalHouseNo || "",
+          ownerLocalBuildingNo: data.ownerLocalBuildingNo || "",
+          ownerLocalLandmark: data.ownerLocalLandmark || "",
+          ownerLocalLocality: data.ownerLocalLocality || "",
+          ownerLocalPincode: data.ownerLocalPincode || "",
+          ownerPermanentHouseNo: data.ownerPermanentHouseNo || "",
+          ownerPermanentBuilding: data.ownerPermanentBuilding || "",
+          ownerPermanentLandmark: data.ownerPermanentLandmark || "",
+          ownerPermanentLocality: data.ownerPermanentLocality || "",
+          ownerPermanentPincode: data.ownerPermanentPincode || "",
+          ownerEmail: data.ownerEmail || "",
+          ownerMobile: data.ownerMobile || "",
+
+          // Agent details
+          agentName: data.agentName || "",
+          agentLocalHouseNo: data.agentLocalHouseNo || "",
+          agentLocalBuildingNo: data.agentLocalBuildingNo || "",
+          agentLocalLandmark: data.agentLocalLandmark || "",
+          agentLocalLocality: data.agentLocalLocality || "",
+          agentLocalPincode: data.agentLocalPincode || "",
+          agentPermanentHouseNo: data.agentPermanentHouseNo || "",
+          agentPermanentBuilding: data.agentPermanentBuilding || "",
+          agentPermanentLandmark: data.agentPermanentLandmark || "",
+          agentPermanentLocality: data.agentPermanentLocality || "",
+          agentPermanentPincode: data.agentPermanentPincode || "",
+          agentEmail: data.agentEmail || "",
+          agentMobile: data.agentMobile || "",
+
+          // Lift details
+          premiseHouseNo: data.premiseHouseNo || "",
+          premiseBuildingNo: data.premiseBuildingNo || "",
+          premiseLandmark: data.premiseLandmark || "",
+          premiseLocality: data.premiseLocality || "",
+          premisePincode: data.premisePincode || "",
+          premiseType: data.premiseType || "Housing",
+
+          // Make details
+          liftMake: data.liftMake || "",
+          liftModel: data.liftModel || "",
+          liftWeight: data.liftWeight || "",
+          liftPersons: data.liftPersons || "",
+          manufacturerName: data.manufacturerName || "",
+        };
+
+        results.push(formData);
+      })
+      .on("end", () => {
+        resolve(results);
+      })
+      .on("error", (error) => {
+        reject(error);
+      });
+  });
+}
 
 async function login(page: Page): Promise<boolean> {
   // Fill value in select element
@@ -116,6 +261,7 @@ async function readCaptcha(page: Page) {
   });
 
   // Convert Uint8Array to Buffer
+  // @ts-ignore
   const buffer = Buffer.from(captchaImage);
 
   // Save this buffer to a file if needed
@@ -130,10 +276,12 @@ async function readCaptcha(page: Page) {
   return text.trim();
 }
 
-async function takePageScreenshot(page: Page) {
+async function takePageScreenshot(page: Page, prefix: string = "") {
   // Generate a unique filename
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const filename = `screenshot-${timestamp}.png`;
+  const filename = prefix
+    ? `${prefix}-${timestamp}.png`
+    : `screenshot-${timestamp}.png`;
   await page.screenshot({ path: filename, fullPage: true });
   console.log(`Screenshot saved as ${filename}`);
 }
@@ -151,26 +299,46 @@ async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fillOwnerDetails(page: Page) {
+async function fillOwnerDetails(page: Page, data: LiftFormData) {
+  console.log("Filling owner details...");
+
   // Owner Name
-  await page.type("#Annexure1s_OwnerName", "Bindal Arcade  Pvt Ltd");
+  await page.type("#Annexure1s_OwnerName", data.ownerName);
 
   // Local Address
-  await page.type("#Annexure1s_OwnerLocalHouseNo", "123");
-  await page.type("#Annexure1s_OwnerLocalBuildingNo", "Tower A");
-  await page.type("#Annexure1s_OwnerLocalLandmark", "Near Metro Station");
-  await page.type("#Annexure1s_OwnerLocalLocality", "Sector 62");
-  await page.type("#Annexure1s_Owner_Local_Pincode", "201301");
+  await page.type("#Annexure1s_OwnerLocalHouseNo", data.ownerLocalHouseNo);
+  await page.type(
+    "#Annexure1s_OwnerLocalBuildingNo",
+    data.ownerLocalBuildingNo
+  );
+  await page.type("#Annexure1s_OwnerLocalLandmark", data.ownerLocalLandmark);
+  await page.type("#Annexure1s_OwnerLocalLocality", data.ownerLocalLocality);
+  await page.type("#Annexure1s_Owner_Local_Pincode", data.ownerLocalPincode);
 
   // Wait for pincode-based fields to auto-populate
   await delay(2000);
 
-  // Permanent Address (fill manually)
-  await page.type("#Annexure1s_OwnerPermanentHouseNo", "123");
-  await page.type("#Annexure1s_OwnerPermanentBuilding", "Tower A");
-  await page.type("#Annexure1s_OwnerPermanentLandmark", "Near Metro Station");
-  await page.type("#Annexure1s_OwnerPermanentLocality", "Sector 62");
-  await page.type("#Annexure1s_OwnerPermanentPincode", "201301");
+  // Permanent Address
+  await page.type(
+    "#Annexure1s_OwnerPermanentHouseNo",
+    data.ownerPermanentHouseNo
+  );
+  await page.type(
+    "#Annexure1s_OwnerPermanentBuilding",
+    data.ownerPermanentBuilding
+  );
+  await page.type(
+    "#Annexure1s_OwnerPermanentLandmark",
+    data.ownerPermanentLandmark
+  );
+  await page.type(
+    "#Annexure1s_OwnerPermanentLocality",
+    data.ownerPermanentLocality
+  );
+  await page.type(
+    "#Annexure1s_OwnerPermanentPincode",
+    data.ownerPermanentPincode
+  );
 
   // Wait for permanent address pincode-based fields to auto-populate
   await delay(2000);
@@ -179,18 +347,19 @@ async function fillOwnerDetails(page: Page) {
   const emailInput = await page.$("input[name='Annexure1s.OwnerMailId']");
   if (emailInput) {
     await emailInput.evaluate((el) => ((el as HTMLInputElement).value = ""));
-    await emailInput.type("bindalarcadepvtltd@gmail.com");
+    await emailInput.type(data.ownerEmail);
   } else {
     console.error("Email input element not found");
   }
-  await page.type("#Annexure1s_OwnerMob", "8802759959");
+  await page.type("#Annexure1s_OwnerMob", data.ownerMobile);
 
   // Click Save & Next
   await Promise.all([page.click("#nxt1")]);
   await delay(2000);
+  console.log("Owner details filled and saved");
 }
 
-async function fillAuthorizedAgentDetails(page: Page) {
+async function fillAuthorizedAgentDetails(page: Page, data: LiftFormData) {
   console.log("Filling authorized agent details...");
 
   // Agent Name
@@ -199,26 +368,45 @@ async function fillAuthorizedAgentDetails(page: Page) {
     await agentNameInput.evaluate(
       (el) => ((el as HTMLInputElement).value = "")
     );
-    await agentNameInput.type("John Doe");
+    await agentNameInput.type(data.agentName);
   } else {
     console.error("Agent name input element not found");
   }
+
   // Local Address
-  await page.type("#Annexure1s_AgentLocalHouseNo", "456");
-  await page.type("#Annexure1s_AgentLocalBuildingNo", "Green Tower");
-  await page.type("#Annexure1s_AgentLocalLandmark", "Near City Mall");
-  await page.type("#Annexure1s_AgentLocalLocality", "Sector 50");
-  await page.type("#Annexure1s_Agent_Local_Pincode", "201301");
+  await page.type("#Annexure1s_AgentLocalHouseNo", data.agentLocalHouseNo);
+  await page.type(
+    "#Annexure1s_AgentLocalBuildingNo",
+    data.agentLocalBuildingNo
+  );
+  await page.type("#Annexure1s_AgentLocalLandmark", data.agentLocalLandmark);
+  await page.type("#Annexure1s_AgentLocalLocality", data.agentLocalLocality);
+  await page.type("#Annexure1s_Agent_Local_Pincode", data.agentLocalPincode);
 
   // Wait for pincode-based fields to auto-populate
   await delay(2000);
 
-  // Permanent Address (fill manually)
-  await page.type("#Annexure1s_AgentPermanentHouseNo", "456");
-  await page.type("#Annexure1s_AgentPermanentBuilding", "Green Tower");
-  await page.type("#Annexure1s_AgentPermanentLandmark", "Near City Mall");
-  await page.type("#Annexure1s_AgentPermanentLocality", "Sector 50");
-  await page.type("#Annexure1s_AgentPermanentPincode", "201301");
+  // Permanent Address
+  await page.type(
+    "#Annexure1s_AgentPermanentHouseNo",
+    data.agentPermanentHouseNo
+  );
+  await page.type(
+    "#Annexure1s_AgentPermanentBuilding",
+    data.agentPermanentBuilding
+  );
+  await page.type(
+    "#Annexure1s_AgentPermanentLandmark",
+    data.agentPermanentLandmark
+  );
+  await page.type(
+    "#Annexure1s_AgentPermanentLocality",
+    data.agentPermanentLocality
+  );
+  await page.type(
+    "#Annexure1s_AgentPermanentPincode",
+    data.agentPermanentPincode
+  );
 
   // Wait for permanent address pincode-based fields to auto-populate
   await delay(2000);
@@ -227,11 +415,11 @@ async function fillAuthorizedAgentDetails(page: Page) {
   const emailInput = await page.$("#Annexure1s_AgentMailId");
   if (emailInput) {
     await emailInput.evaluate((el) => ((el as HTMLInputElement).value = ""));
-    await emailInput.type("agent.bindal@gmail.com");
+    await emailInput.type(data.agentEmail);
   } else {
     console.error("Agent email input element not found");
   }
-  await page.type("#Annexure1s_AgentMob", "9876543210");
+  await page.type("#Annexure1s_AgentMob", data.agentMobile);
 
   // Click Save & Next
   await Promise.all([page.click("#nxt2")]);
@@ -239,7 +427,7 @@ async function fillAuthorizedAgentDetails(page: Page) {
   console.log("Authorized agent details filled and saved");
 }
 
-async function fillLiftDetails(page: Page) {
+async function fillLiftDetails(page: Page, data: LiftFormData) {
   console.log("Filling lift details...");
 
   // Select "No" for new lift registration
@@ -248,22 +436,22 @@ async function fillLiftDetails(page: Page) {
   await delay(1000);
 
   // Fill the address details
-  await page.type("#AnnexxIIs_PremiseHouseNo", "234");
-  await page.type("#AnnexxIIs_PremiseBuildingNo", "Bindal Arcade");
-  await page.type("#AnnexxIIs_PremiseLandmark", "Near Sector 62 Metro Station");
-  await page.type("#AnnexxIIs_PremiseLocality", "Sector 62");
-  await page.type("#AnnexxIIs_Premise_Pincode", "201301");
+  await page.type("#AnnexxIIs_PremiseHouseNo", data.premiseHouseNo);
+  await page.type("#AnnexxIIs_PremiseBuildingNo", data.premiseBuildingNo);
+  await page.type("#AnnexxIIs_PremiseLandmark", data.premiseLandmark);
+  await page.type("#AnnexxIIs_PremiseLocality", data.premiseLocality);
+  await page.type("#AnnexxIIs_Premise_Pincode", data.premisePincode);
 
   // Wait for pincode-based fields to auto-populate
   await delay(2000);
 
-  // Select "Public" premise and "Housing" society
+  // Select "Public" premise and specified society type
   await page.waitForSelector("#AnnexxIIs_IsPublicORPrivatePremise");
   await page.select("#AnnexxIIs_IsPublicORPrivatePremise", "Public");
   await delay(1000);
 
   await page.waitForSelector("#AnnexxIIs_PremiseType");
-  await page.select("#AnnexxIIs_PremiseType", "Housing");
+  await page.select("#AnnexxIIs_PremiseType", data.premiseType);
 
   // Select "No" for lift being modified or altered
   await page.click('input[name="IsLiftModifyOrAltered"][value="No"]');
@@ -283,7 +471,7 @@ async function fillLiftDetails(page: Page) {
   console.log("Lift details filled and saved");
 }
 
-async function fillMakeDetails(page: Page) {
+async function fillMakeDetails(page: Page, data: LiftFormData) {
   console.log("Filling lift make details...");
 
   // Remove header elements that might interfere with form interaction
@@ -307,22 +495,25 @@ async function fillMakeDetails(page: Page) {
   }
 
   // Fill Make/Model
-  await page.type("#AnnexIV_Make", "TKE Evolution 200");
+  await page.type("#AnnexIV_Make", data.liftMake);
 
   // Fill Serial No
-  await page.type("#AnnexIV_Model", "TKE2023456789");
+  await page.type("#AnnexIV_Model", data.liftModel);
 
   // Select Type as Existing
   await page.select("#AnnexIV_Type", "Existing");
 
   // Fill Weight
-  await page.type("#AnnexIV_Weight", "680");
+  await page.type("#AnnexIV_Weight", data.liftWeight);
 
   // Fill Number of Person
-  await page.type("#AnnexIV_NoOfPerson", "10");
+  await page.type("#AnnexIV_NoOfPerson", data.liftPersons);
 
   // Fill manufacturer name with autocomplete
-  await page.type("#AnnexIV_manufacturerName", "TK");
+  await page.type(
+    "#AnnexIV_manufacturerName",
+    data.manufacturerName.substring(0, 2)
+  );
   await delay(2000); // Wait for autocomplete to appear
 
   // Select the first autocomplete option
@@ -339,10 +530,7 @@ async function fillMakeDetails(page: Page) {
           "#AnnexIV_manufacturerName",
           (el) => ((el as HTMLInputElement).value = "")
         );
-        await page.type(
-          "#AnnexIV_manufacturerName",
-          "TK Elevator India private Limited"
-        );
+        await page.type("#AnnexIV_manufacturerName", data.manufacturerName);
       }
     }
   } catch (error) {
@@ -352,10 +540,7 @@ async function fillMakeDetails(page: Page) {
       "#AnnexIV_manufacturerName",
       (el) => ((el as HTMLInputElement).value = "")
     );
-    await page.type(
-      "#AnnexIV_manufacturerName",
-      "TK Elevator India private Limited"
-    );
+    await page.type("#AnnexIV_manufacturerName", data.manufacturerName);
   }
 
   // Wait for auto-fill of manufacturer address and registration
@@ -489,7 +674,7 @@ async function fillMakeDetails(page: Page) {
   );
 
   // Click Save & Next
-  // Foucs on the button to make sure it is clickable
+  // Focus on the button to make sure it is clickable
   await page.$eval("#nxt4", (el) => {
     (el as HTMLButtonElement).focus();
   });
