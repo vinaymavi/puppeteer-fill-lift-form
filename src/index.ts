@@ -34,6 +34,8 @@ let browser: Browser;
   await takePageScreenshot(page);
   await fillAuthorizedAgentDetails(page);
   await takePageScreenshot(page);
+  await fillLiftDetails(page);
+  await takePageScreenshot(page);
   // Close the browser
   await browser.close();
   console.log("Browser closed");
@@ -233,4 +235,48 @@ async function fillAuthorizedAgentDetails(page: Page) {
   await Promise.all([page.click("#nxt2")]);
   await delay(2000);
   console.log("Authorized agent details filled and saved");
+}
+
+async function fillLiftDetails(page: Page) {
+  console.log("Filling lift details...");
+
+  // Select "No" for new lift registration
+  await page.waitForSelector('input[name="IsnewLift"]');
+  await page.click('input[name="IsnewLift"][value="No"]');
+  await delay(1000);
+
+  // Fill the address details
+  await page.type("#AnnexxIIs_PremiseHouseNo", "234");
+  await page.type("#AnnexxIIs_PremiseBuildingNo", "Bindal Arcade");
+  await page.type("#AnnexxIIs_PremiseLandmark", "Near Sector 62 Metro Station");
+  await page.type("#AnnexxIIs_PremiseLocality", "Sector 62");
+  await page.type("#AnnexxIIs_Premise_Pincode", "201301");
+
+  // Wait for pincode-based fields to auto-populate
+  await delay(2000);
+
+  // Select "Public" premise and "Housing" society
+  await page.waitForSelector("#AnnexxIIs_IsPublicORPrivatePremise");
+  await page.select("#AnnexxIIs_IsPublicORPrivatePremise", "Public");
+  await delay(1000);
+
+  await page.waitForSelector("#AnnexxIIs_PremiseType");
+  await page.select("#AnnexxIIs_PremiseType", "Housing");
+
+  // Select "No" for lift being modified or altered
+  await page.click('input[name="IsLiftModifyOrAltered"][value="No"]');
+  await delay(1000);
+
+  // Select "No" for lift being shifted
+  await page.click('input[name="IsLiftShifted"][value="No"]');
+  await delay(1000);
+
+  // Select "No" for building map approved
+  await page.click('input[name="IsBuildingMapApproved"][value="No"]');
+  await delay(1000);
+
+  // Click Save & Next
+  await Promise.all([page.click("#nxt3")]);
+  await delay(2000);
+  console.log("Lift details filled and saved");
 }
