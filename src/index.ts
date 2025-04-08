@@ -32,6 +32,8 @@ let browser: Browser;
   await takePageScreenshot(page);
   await fillOwnerDetails(page);
   await takePageScreenshot(page);
+  await fillAuthorizedAgentDetails(page);
+  await takePageScreenshot(page);
   // Close the browser
   await browser.close();
   console.log("Browser closed");
@@ -182,4 +184,53 @@ async function fillOwnerDetails(page: Page) {
   // Click Save & Next
   await Promise.all([page.click("#nxt1")]);
   await delay(2000);
+}
+
+async function fillAuthorizedAgentDetails(page: Page) {
+  console.log("Filling authorized agent details...");
+
+  // Agent Name
+  const agentNameInput = await page.$("#Annexure1s_AgentName");
+  if (agentNameInput) {
+    await agentNameInput.evaluate(
+      (el) => ((el as HTMLInputElement).value = "")
+    );
+    await agentNameInput.type("John Doe");
+  } else {
+    console.error("Agent name input element not found");
+  }
+  // Local Address
+  await page.type("#Annexure1s_AgentLocalHouseNo", "456");
+  await page.type("#Annexure1s_AgentLocalBuildingNo", "Green Tower");
+  await page.type("#Annexure1s_AgentLocalLandmark", "Near City Mall");
+  await page.type("#Annexure1s_AgentLocalLocality", "Sector 50");
+  await page.type("#Annexure1s_Agent_Local_Pincode", "201301");
+
+  // Wait for pincode-based fields to auto-populate
+  await delay(2000);
+
+  // Permanent Address (fill manually)
+  await page.type("#Annexure1s_AgentPermanentHouseNo", "456");
+  await page.type("#Annexure1s_AgentPermanentBuilding", "Green Tower");
+  await page.type("#Annexure1s_AgentPermanentLandmark", "Near City Mall");
+  await page.type("#Annexure1s_AgentPermanentLocality", "Sector 50");
+  await page.type("#Annexure1s_AgentPermanentPincode", "201301");
+
+  // Wait for permanent address pincode-based fields to auto-populate
+  await delay(2000);
+
+  // Contact Details
+  const emailInput = await page.$("#Annexure1s_AgentMailId");
+  if (emailInput) {
+    await emailInput.evaluate((el) => ((el as HTMLInputElement).value = ""));
+    await emailInput.type("agent.bindal@gmail.com");
+  } else {
+    console.error("Agent email input element not found");
+  }
+  await page.type("#Annexure1s_AgentMob", "9876543210");
+
+  // Click Save & Next
+  await Promise.all([page.click("#nxt2")]);
+  await delay(2000);
+  console.log("Authorized agent details filled and saved");
 }
