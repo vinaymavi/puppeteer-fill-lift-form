@@ -30,6 +30,8 @@ let browser: Browser;
   await takePageScreenshot(page);
   await addLiftPage(page);
   await takePageScreenshot(page);
+  await fillOwnerDetails(page);
+  await takePageScreenshot(page);
   // Close the browser
   await browser.close();
   console.log("Browser closed");
@@ -137,4 +139,47 @@ async function listAllForms(page: Page) {
 async function addLiftPage(page: Page) {
   await page.goto("https://updeslift.org/User/Annexure_1");
   await page.waitForSelector("#heading");
+}
+
+async function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fillOwnerDetails(page: Page) {
+  // Owner Name
+  await page.type("#Annexure1s_OwnerName", "Bindal Arcade  Pvt Ltd");
+
+  // Local Address
+  await page.type("#Annexure1s_OwnerLocalHouseNo", "123");
+  await page.type("#Annexure1s_OwnerLocalBuildingNo", "Tower A");
+  await page.type("#Annexure1s_OwnerLocalLandmark", "Near Metro Station");
+  await page.type("#Annexure1s_OwnerLocalLocality", "Sector 62");
+  await page.type("#Annexure1s_Owner_Local_Pincode", "201301");
+
+  // Wait for pincode-based fields to auto-populate
+  await delay(2000);
+
+  // Permanent Address (fill manually)
+  await page.type("#Annexure1s_OwnerPermanentHouseNo", "123");
+  await page.type("#Annexure1s_OwnerPermanentBuilding", "Tower A");
+  await page.type("#Annexure1s_OwnerPermanentLandmark", "Near Metro Station");
+  await page.type("#Annexure1s_OwnerPermanentLocality", "Sector 62");
+  await page.type("#Annexure1s_OwnerPermanentPincode", "201301");
+
+  // Wait for permanent address pincode-based fields to auto-populate
+  await delay(2000);
+
+  // Contact Details
+  const emailInput = await page.$("input[name='Annexure1s.OwnerMailId']");
+  if (emailInput) {
+    await emailInput.evaluate((el) => ((el as HTMLInputElement).value = ""));
+    await emailInput.type("bindalarcadepvtltd@gmail.com");
+  } else {
+    console.error("Email input element not found");
+  }
+  await page.type("#Annexure1s_OwnerMob", "8802759959");
+
+  // Click Save & Next
+  await Promise.all([page.click("#nxt1")]);
+  await delay(2000);
 }
