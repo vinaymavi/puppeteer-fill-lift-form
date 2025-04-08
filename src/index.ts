@@ -509,5 +509,6 @@ async function fillMakeDetails(page: Page) {
 
   console.log("Division value:", divisionValue);
   await Promise.all([page.click("#nxt4")]);
+  await delay(2000);
   console.log("Lift make details filled and saved");
 }
