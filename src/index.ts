@@ -12,12 +12,28 @@ let browser: Browser;
   console.log("Starting browser");
   browser = await puppeteer.launch({ headless: true });
   const page = await getPage(loginUrl);
-  await login(page);
-  console.log("Login successful");
+  let isLogin = await login(page);
+  if (!isLogin) {
+    isLogin = await login(page);
+  }
+  if (!isLogin) {
+    isLogin = await login(page);
+  }
+  if (!isLogin) {
+    isLogin = await login(page);
+  }
+  if (!isLogin) {
+    isLogin = await login(page);
+  }
   await takePageScreenshot(page);
+  await listAllForms(page);
+  await takePageScreenshot(page);
+  // Close the browser
+  await browser.close();
+  console.log("Browser closed");
 })();
 
-async function login(page: Page) {
+async function login(page: Page): Promise<boolean> {
   // Fill value in select element
   const selectElement = await page.$("#Type");
   if (selectElement) {
@@ -26,9 +42,18 @@ async function login(page: Page) {
     console.log("Select element not found");
     throw new Error("Select element not found");
   }
+
+  // Clear and fill username
+  await page.$eval("#Mob", (el) => ((el as HTMLInputElement).value = ""));
   await page.type("#Mob", username);
+
+  // Clear and fill password
+  await page.$eval("#Password", (el) => ((el as HTMLInputElement).value = ""));
   await page.type("#Password", password);
+
   const captchaText = await readCaptcha(page);
+  // Clear and fill captcha
+  await page.$eval("#Captcha", (el) => ((el as HTMLInputElement).value = ""));
   await page.type("#Captcha", captchaText);
 
   try {
@@ -40,6 +65,22 @@ async function login(page: Page) {
   } catch (error) {
     console.error("Navigation failed:", error);
     throw error;
+  }
+
+  // Check for the error message element
+  const errorMessageElement = await page.$("span.text-danger.text-center");
+  if (errorMessageElement) {
+    const errorMessage = await page.evaluate(
+      (el) => el.textContent?.trim(),
+      errorMessageElement
+    );
+    if (errorMessage === "Invalid Captcha") {
+      console.error("Login failed: Invalid Captcha");
+      return false;
+    }
+  } else {
+    console.log("No error message found, login successful");
+    return true;
   }
 }
 
@@ -72,8 +113,6 @@ async function readCaptcha(page: Page) {
   // Use tesseract.js to recognize the text in the image
   console.log("Recognizing captcha text...");
   const data = await tesseract.recognize(buffer, "eng");
-
-  console.log(data);
   const {
     data: { text },
   } = data;
@@ -87,4 +126,8 @@ async function takePageScreenshot(page: Page) {
   const filename = `screenshot-${timestamp}.png`;
   await page.screenshot({ path: filename, fullPage: true });
   console.log(`Screenshot saved as ${filename}`);
+}
+
+async function listAllForms(page: Page) {
+  await page.goto("https://updeslift.org/Admin/ListAnnexure1");
 }
