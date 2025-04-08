@@ -28,6 +28,8 @@ let browser: Browser;
   await takePageScreenshot(page);
   await listAllForms(page);
   await takePageScreenshot(page);
+  await addLiftPage(page);
+  await takePageScreenshot(page);
   // Close the browser
   await browser.close();
   console.log("Browser closed");
@@ -130,4 +132,9 @@ async function takePageScreenshot(page: Page) {
 
 async function listAllForms(page: Page) {
   await page.goto("https://updeslift.org/Admin/ListAnnexure1");
+}
+
+async function addLiftPage(page: Page) {
+  await page.goto("https://updeslift.org/User/Annexure_1");
+  await page.waitForSelector("#heading");
 }
