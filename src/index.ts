@@ -5,8 +5,8 @@ import csv from "csv-parser";
 import path from "path";
 
 const loginUrl = "https://updeslift.org/Account/login";
-const username = "8802759959";
-const password = "Bindal@123";
+const username = "7078691466";
+const password = "Vish@123";
 const selectType = "Public";
 
 // Define types for the form data
@@ -64,6 +64,10 @@ interface LiftFormData {
   localAgentLandmark: string;
   localAgentLocality: string;
   localAgentPincode: string;
+
+  // Commission dates
+  commencementDate: string;
+  completionDate: string;
 }
 
 let browser: Browser;
@@ -193,6 +197,10 @@ async function readFormDataFromCSV(
           localAgentLandmark: data.localAgentLandmark || "",
           localAgentLocality: data.localAgentLocality || "",
           localAgentPincode: data.localAgentPincode || "",
+
+          // Commission dates
+          commencementDate: data.commencementDate || "",
+          completionDate: data.completionDate || "",
         };
 
         results.push(formData);
@@ -618,18 +626,10 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
   await page.type("#AnnexIV_agency_Local_Locality", data.localAgentLocality);
   await page.type("#AnnexIV_agency_Local_Pincode", data.localAgentPincode);
 
-  // Set proposed dates
-  // Get current date
-  const currentDate = new Date();
-  // Set commissioning start date to current date
-  const startDate = new Date(currentDate);
-  // Set completion date to 1 month after start date
-  const endDate = new Date(currentDate);
-  endDate.setMonth(endDate.getMonth() + 1);
-
-  // Format dates as YYYY-MM-DD
-  const startDateFormatted = startDate.toISOString().split("T")[0];
-  const endDateFormatted = endDate.toISOString().split("T")[0];
+  // Set commission dates
+  // Format dates as YYYY-MM-DD if not already in that format
+  let startDateFormatted = data.commencementDate;
+  let endDateFormatted = data.completionDate;
 
   await page.$eval(
     "#AnnexIV_Commencement_commissioning_Date",
