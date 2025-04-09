@@ -55,6 +55,15 @@ interface LiftFormData {
   liftWeight: string;
   liftPersons: string;
   manufacturerName: string;
+
+  // Local authorized agency details
+  localAgentName: string;
+  localAgentContactDetail: string;
+  localAgentHouseNo: string;
+  localAgentBuilding: string;
+  localAgentLandmark: string;
+  localAgentLocality: string;
+  localAgentPincode: string;
 }
 
 let browser: Browser;
@@ -175,6 +184,15 @@ async function readFormDataFromCSV(
           liftWeight: data.liftWeight || "",
           liftPersons: data.liftPersons || "",
           manufacturerName: data.manufacturerName || "",
+
+          // Local authorized agency details
+          localAgentName: data.localAgentName || "",
+          localAgentContactDetail: data.localAgentContactDetail || "",
+          localAgentHouseNo: data.localAgentHouseNo || "",
+          localAgentBuilding: data.localAgentBuilding || "",
+          localAgentLandmark: data.localAgentLandmark || "",
+          localAgentLocality: data.localAgentLocality || "",
+          localAgentPincode: data.localAgentPincode || "",
         };
 
         results.push(formData);
@@ -315,9 +333,6 @@ async function fillOwnerDetails(page: Page, data: LiftFormData) {
   await page.type("#Annexure1s_OwnerLocalLocality", data.ownerLocalLocality);
   await page.type("#Annexure1s_Owner_Local_Pincode", data.ownerLocalPincode);
 
-  // Wait for pincode-based fields to auto-populate
-  await delay(2000);
-
   // Permanent Address
   await page.type(
     "#Annexure1s_OwnerPermanentHouseNo",
@@ -340,9 +355,6 @@ async function fillOwnerDetails(page: Page, data: LiftFormData) {
     data.ownerPermanentPincode
   );
 
-  // Wait for permanent address pincode-based fields to auto-populate
-  await delay(2000);
-
   // Contact Details
   const emailInput = await page.$("input[name='Annexure1s.OwnerMailId']");
   if (emailInput) {
@@ -354,6 +366,11 @@ async function fillOwnerDetails(page: Page, data: LiftFormData) {
   await page.type("#Annexure1s_OwnerMob", data.ownerMobile);
 
   // Click Save & Next
+  await page.$eval("#nxt1", (el) => {
+    (el as HTMLButtonElement).focus();
+  });
+  await delay(2000);
+
   await Promise.all([page.click("#nxt1")]);
   await delay(2000);
   console.log("Owner details filled and saved");
@@ -383,9 +400,6 @@ async function fillAuthorizedAgentDetails(page: Page, data: LiftFormData) {
   await page.type("#Annexure1s_AgentLocalLocality", data.agentLocalLocality);
   await page.type("#Annexure1s_Agent_Local_Pincode", data.agentLocalPincode);
 
-  // Wait for pincode-based fields to auto-populate
-  await delay(2000);
-
   // Permanent Address
   await page.type(
     "#Annexure1s_AgentPermanentHouseNo",
@@ -408,9 +422,6 @@ async function fillAuthorizedAgentDetails(page: Page, data: LiftFormData) {
     data.agentPermanentPincode
   );
 
-  // Wait for permanent address pincode-based fields to auto-populate
-  await delay(2000);
-
   // Contact Details
   const emailInput = await page.$("#Annexure1s_AgentMailId");
   if (emailInput) {
@@ -422,6 +433,10 @@ async function fillAuthorizedAgentDetails(page: Page, data: LiftFormData) {
   await page.type("#Annexure1s_AgentMob", data.agentMobile);
 
   // Click Save & Next
+  await page.$eval("#nxt2", (el) => {
+    (el as HTMLButtonElement).focus();
+  });
+  await delay(2000);
   await Promise.all([page.click("#nxt2")]);
   await delay(2000);
   console.log("Authorized agent details filled and saved");
@@ -433,7 +448,6 @@ async function fillLiftDetails(page: Page, data: LiftFormData) {
   // Select "No" for new lift registration
   await page.waitForSelector('input[name="IsnewLift"]');
   await page.click('input[name="IsnewLift"][value="No"]');
-  await delay(1000);
 
   // Fill the address details
   await page.type("#AnnexxIIs_PremiseHouseNo", data.premiseHouseNo);
@@ -441,9 +455,6 @@ async function fillLiftDetails(page: Page, data: LiftFormData) {
   await page.type("#AnnexxIIs_PremiseLandmark", data.premiseLandmark);
   await page.type("#AnnexxIIs_PremiseLocality", data.premiseLocality);
   await page.type("#AnnexxIIs_Premise_Pincode", data.premisePincode);
-
-  // Wait for pincode-based fields to auto-populate
-  await delay(2000);
 
   // Select "Public" premise and specified society type
   await page.waitForSelector("#AnnexxIIs_IsPublicORPrivatePremise");
@@ -455,15 +466,15 @@ async function fillLiftDetails(page: Page, data: LiftFormData) {
 
   // Select "No" for lift being modified or altered
   await page.click('input[name="IsLiftModifyOrAltered"][value="No"]');
-  await delay(1000);
+  await delay(500);
 
   // Select "No" for lift being shifted
   await page.click('input[name="IsLiftShifted"][value="No"]');
-  await delay(1000);
+  await delay(500);
 
   // Select "No" for building map approved
   await page.click('input[name="IsBuildingMapApproved"][value="No"]');
-  await delay(1000);
+  await delay(500);
 
   // Click Save & Next
   await Promise.all([page.click("#nxt3")]);
@@ -512,7 +523,7 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
   // Fill manufacturer name with autocomplete
   await page.type(
     "#AnnexIV_manufacturerName",
-    data.manufacturerName.substring(0, 2)
+    data.manufacturerName.substring(0, 6)
   );
   await delay(2000); // Wait for autocomplete to appear
 
@@ -541,47 +552,6 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
       (el) => ((el as HTMLInputElement).value = "")
     );
     await page.type("#AnnexIV_manufacturerName", data.manufacturerName);
-  }
-
-  // Wait for auto-fill of manufacturer address and registration
-  await delay(3000);
-
-  // If local representative details are not auto-filled, manually fill them
-  const localAuthName = await page.$eval(
-    "#AnnexIV_localAuthorizedManufacturerName",
-    (el) => (el as HTMLInputElement).value
-  );
-
-  if (!localAuthName || localAuthName.trim() === "") {
-    console.log(
-      "Local representative details not auto-filled, filling manually"
-    );
-
-    // Fill local authorized representative name
-    await page.type(
-      "#AnnexIV_localAuthorizedManufacturerName",
-      "TK Elevator Representative"
-    );
-
-    // Fill contact number
-    await page.type(
-      "#AnnexIV_localAuthorizedManufactureContactDetail",
-      "9876543210"
-    );
-
-    // Fill address details
-    await page.type("#AnnexIV_manufacturer_Local_HouseNo", "101");
-    await page.type(
-      "#AnnexIV_manufacturer_Local_Building",
-      "TK Service Center"
-    );
-    await page.type(
-      "#AnnexIV_manufacturer_Local_Landmark",
-      "Near Industrial Area"
-    );
-    await page.type("#AnnexIV_manufacturer_Local_Locality", "Sector 63");
-    await page.type("#AnnexIV_manufacturer_Local_Pincode", "201301");
-    await delay(2000); // Wait for pincode-based fields to auto-populate
   }
 
   // Fill commissioning agency name (same as manufacturer)
@@ -626,7 +596,6 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
     (el) => (el as HTMLInputElement).value
   );
   await page.type("#AnnexIV_agency_Pincode", pincode);
-  await delay(2000); // Wait for pincode-based fields to auto-populate
 
   // Copy manufacturer registration to agency registration
   const regNumber = await page.$eval(
@@ -636,18 +605,18 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
   await page.type("#AnnexIV_RegNoAgency", regNumber);
 
   // Fill local authorized agency details
+  await page.type("#AnnexIV_localAuthorizedagencyName", data.localAgentName);
   await page.type(
-    "#AnnexIV_localAuthorizedagencyName",
-    "TK Elevator Local Agent"
+    "#AnnexIV_localAuthorizedagencyContactDetail",
+    data.localAgentContactDetail
   );
-  await page.type("#AnnexIV_localAuthorizedagencyContactDetail", "9898989898");
 
   // Fill local authorized agency address
-  await page.type("#AnnexIV_agency_Local_HouseNo", "102");
-  await page.type("#AnnexIV_agency_Local_Building", "TK Local Office");
-  await page.type("#AnnexIV_agency_Local_Landmark", "Near Main Market");
-  await page.type("#AnnexIV_agency_Local_Locality", "Sector 58");
-  await page.type("#AnnexIV_agency_Local_Pincode", "250001");
+  await page.type("#AnnexIV_agency_Local_HouseNo", data.localAgentHouseNo);
+  await page.type("#AnnexIV_agency_Local_Building", data.localAgentBuilding);
+  await page.type("#AnnexIV_agency_Local_Landmark", data.localAgentLandmark);
+  await page.type("#AnnexIV_agency_Local_Locality", data.localAgentLocality);
+  await page.type("#AnnexIV_agency_Local_Pincode", data.localAgentPincode);
 
   // Set proposed dates
   // Get current date
@@ -680,19 +649,7 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
   });
   // Wait pin code ajax event to complete
   await delay(2000);
-  // Read the value of the input element
-  const divisionValue = await page.$eval(
-    "#AnnexIV_agency_Local_Divison",
-    (el) => {
-      // print this HTML element
-      console.log("Element:", el);
-      // print this HTML element value
-      console.log("Element value:", (el as HTMLInputElement).value);
-      return (el as HTMLInputElement).value;
-    }
-  );
 
-  console.log("Division value:", divisionValue);
   await Promise.all([page.click("#nxt4")]);
   await delay(2000);
   console.log("Lift make details filled and saved");
