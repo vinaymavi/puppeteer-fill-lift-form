@@ -68,6 +68,20 @@ interface LiftFormData {
   // Commission dates
   commencementDate: string;
   completionDate: string;
+
+  // File paths for annexures
+  approvedBuildingPlanPath?: string;
+  drawingDetailsPath?: string;
+  affidavitOfManufacturerPath?: string;
+  technicalDetailsPath?: string;
+  safetyFeaturesPath?: string;
+  separateDeclarationsPath?: string;
+  manufacturerSignaturePath?: string;
+  authSignaturePath?: string;
+  ownerSignaturePath?: string;
+
+  // Registration number field
+  registrationNumber?: string;
 }
 
 let browser: Browser;
@@ -94,6 +108,9 @@ let browser: Browser;
   const formDataList = await readFormDataFromCSV("lift_data.csv");
   console.log(`Loaded ${formDataList.length} forms to process`);
 
+  // Add array to store successful submissions
+  const successfulSubmissions: LiftFormData[] = [];
+
   // Process each form data sequentially
   for (let i = 0; i < formDataList.length; i++) {
     const formData = formDataList[i];
@@ -117,6 +134,15 @@ let browser: Browser;
       await fillMakeDetails(page, formData);
       await takePageScreenshot(page);
 
+      // Add the new step for annexure details
+      const registrationNumber = await fillAnnexureDetails(page, formData);
+      if (registrationNumber) {
+        formData.registrationNumber = registrationNumber;
+        successfulSubmissions.push(formData);
+        console.log(`Registration number captured: ${registrationNumber}`);
+      }
+      await takePageScreenshot(page);
+
       console.log(`Successfully completed form ${i + 1}`);
     } catch (error) {
       console.error(`Error processing form ${i + 1}:`, error);
@@ -124,6 +150,14 @@ let browser: Browser;
       await takePageScreenshot(page, `error-form-${i + 1}`);
       // Continue with the next form
     }
+  }
+
+  // Write output CSV with registrations
+  if (successfulSubmissions.length > 0) {
+    await writeOutputCSV(successfulSubmissions);
+    console.log(
+      `Saved ${successfulSubmissions.length} registrations to lift_registrations.csv`
+    );
   }
 
   // Close the browser
@@ -201,6 +235,17 @@ async function readFormDataFromCSV(
           // Commission dates
           commencementDate: data.commencementDate || "",
           completionDate: data.completionDate || "",
+
+          // File paths
+          approvedBuildingPlanPath: data.approvedBuildingPlanPath || "",
+          drawingDetailsPath: data.drawingDetailsPath || "",
+          affidavitOfManufacturerPath: data.affidavitOfManufacturerPath || "",
+          technicalDetailsPath: data.technicalDetailsPath || "",
+          safetyFeaturesPath: data.safetyFeaturesPath || "",
+          separateDeclarationsPath: data.separateDeclarationsPath || "",
+          manufacturerSignaturePath: data.manufacturerSignaturePath || "",
+          authSignaturePath: data.authSignaturePath || "",
+          ownerSignaturePath: data.ownerSignaturePath || "",
         };
 
         results.push(formData);
@@ -653,4 +698,229 @@ async function fillMakeDetails(page: Page, data: LiftFormData) {
   await Promise.all([page.click("#nxt4")]);
   await delay(2000);
   console.log("Lift make details filled and saved");
+}
+
+// Helper function to upload a file and handle the success message
+async function uploadFile(
+  page: Page,
+  selector: string,
+  filePath: string
+): Promise<boolean> {
+  if (!filePath || !fs.existsSync(filePath)) {
+    console.log(`File not found: ${filePath}`);
+    return false;
+  }
+
+  // Find the file input and upload the file
+  const fileInput = await page.$(selector);
+  if (!fileInput) {
+    console.error(`File input selector not found: ${selector}`);
+    return false;
+  }
+
+  try {
+    // Upload the file
+    // @ts-ignore
+    await fileInput.uploadFile(filePath);
+    await delay(1000); // Wait for upload to start
+
+    // Wait for the success modal to appear
+    try {
+      await page.waitForSelector(".swal-overlay--show-modal", {
+        timeout: 10000,
+      });
+
+      // Click the OK button on the success message
+      const okButton = await page.$(".swal-button--confirm");
+      if (okButton) {
+        await okButton.click();
+        console.log(`Successfully uploaded file: ${path.basename(filePath)}`);
+        await delay(500); // Small delay after confirmation
+        return true;
+      }
+    } catch (error) {
+      console.error(
+        `Timeout waiting for success message after uploading: ${path.basename(
+          filePath
+        )}`
+      );
+      return false;
+    }
+  } catch (error) {
+    console.error(`Error uploading file ${path.basename(filePath)}:`, error);
+    return false;
+  }
+
+  return false;
+}
+
+async function fillAnnexureDetails(
+  page: Page,
+  data: LiftFormData
+): Promise<string | null> {
+  console.log("Filling annexure details...");
+
+  // Remove header elements that might interfere with form interaction
+  await page.evaluate(() => {
+    // Remove the main header
+    const header = document.querySelector("header.header");
+    if (header) header.remove();
+
+    // Remove the page header
+    const pageHeader = document.querySelector("header.page-header");
+    if (pageHeader) pageHeader.remove();
+  });
+
+  // Upload approved building plan
+  if (data.approvedBuildingPlanPath) {
+    await uploadFile(
+      page,
+      "#ApprovedbuildingPlan",
+      data.approvedBuildingPlanPath
+    );
+  }
+
+  // Upload drawing details
+  if (data.drawingDetailsPath) {
+    await uploadFile(
+      page,
+      "#DrawingdetailsoftheliftOrEscalator",
+      data.drawingDetailsPath
+    );
+  }
+
+  // Upload affidavit of manufacturer
+  if (data.affidavitOfManufacturerPath) {
+    await uploadFile(
+      page,
+      "#AffidavitOfManufacturer",
+      data.affidavitOfManufacturerPath
+    );
+  }
+
+  // Upload technical details
+  if (data.technicalDetailsPath) {
+    await uploadFile(page, "#TechnicalDetails", data.technicalDetailsPath);
+  }
+
+  // Upload safety features
+  if (data.safetyFeaturesPath) {
+    await uploadFile(page, "#SafetyFeatures", data.safetyFeaturesPath);
+  }
+
+  // Upload separate declarations
+  if (data.separateDeclarationsPath) {
+    await uploadFile(
+      page,
+      "#SeparateDeclarations",
+      data.separateDeclarationsPath
+    );
+  }
+
+  // Upload manufacturer signature
+  if (data.manufacturerSignaturePath) {
+    await uploadFile(page, "#ManuSignature", data.manufacturerSignaturePath);
+  }
+
+  // Upload authorized signature
+  if (data.authSignaturePath) {
+    await uploadFile(page, "#AuthSig", data.authSignaturePath);
+  }
+
+  // Upload owner signature
+  if (data.ownerSignaturePath) {
+    await uploadFile(page, "#OSig", data.ownerSignaturePath);
+  }
+
+  // Check the disclaimer checkbox
+  await page.evaluate(() => {
+    const checkbox = document.getElementById("clari") as HTMLInputElement;
+    if (checkbox) {
+      checkbox.checked = true;
+    }
+  });
+
+  // Click Save & Finish
+  await page.$eval("#nxt5", (el) => {
+    (el as HTMLButtonElement).focus();
+  });
+  await delay(2000); // Wait to ensure all uploads are complete
+
+  // Click the Save & Finish button
+  try {
+    await Promise.all([page.click("#nxt5")]);
+    console.log("Form submitted successfully");
+
+    // Wait for the success page to load
+    await delay(5000);
+
+    // Extract registration number from the anchor element
+    const registrationNumber = await page.evaluate(() => {
+      // Find the anchor element within the success message
+      const anchor = document.querySelector(
+        "h2.purple-text.text-center#finmsg a"
+      );
+      if (anchor && anchor.textContent) {
+        return anchor.textContent.trim();
+      }
+
+      // Try alternate method if the anchor doesn't have text content
+      if (anchor && anchor.getAttribute("href")) {
+        const href = anchor.getAttribute("href");
+        const pkIdMatch = href.match(/PK_Id=(\d+)/);
+        if (pkIdMatch && pkIdMatch[1]) {
+          return anchor.textContent || `TEMP${pkIdMatch[1]}`;
+        }
+      }
+
+      return null;
+    });
+
+    if (registrationNumber) {
+      console.log(
+        `Successfully captured registration number: ${registrationNumber}`
+      );
+      return registrationNumber;
+    } else {
+      console.log("Registration number not found in success page");
+      await takePageScreenshot(page, "success-page-no-reg-number");
+    }
+  } catch (error) {
+    console.error("Error submitting the form:", error);
+
+    // Attempt to click again if navigation didn't happen
+    try {
+      await page.click("#nxt5");
+      await delay(5000); // Wait a bit longer
+      console.log("Second attempt to submit the form");
+    } catch (retryError) {
+      console.error("Failed to submit form on retry:", retryError);
+    }
+  }
+
+  console.log("Annexure details filled and form submitted");
+  return null;
+}
+
+// Function to write registration data to CSV
+async function writeOutputCSV(formDataList: LiftFormData[]): Promise<void> {
+  const outputPath = path.resolve("lift_registrations.csv");
+
+  // Create CSV header row
+  const headers =
+    "registrationNumber,liftMake,liftModel,ownerName,premiseLocality";
+
+  // Create CSV rows for each registration
+  const rows = formDataList.map((data) => {
+    return `${data.registrationNumber || ""},${data.liftMake || ""},${
+      data.liftModel || ""
+    },${data.ownerName || ""},${data.premiseLocality || ""}`;
+  });
+
+  // Combine headers and rows
+  const csvContent = headers + "\n" + rows.join("\n");
+
+  // Write to file
+  fs.writeFileSync(outputPath, csvContent);
+  console.log(`Registration data written to ${outputPath}`);
 }
