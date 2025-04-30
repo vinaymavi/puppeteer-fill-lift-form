@@ -5,8 +5,8 @@ import csv from "csv-parser";
 import path from "path";
 
 const loginUrl = "https://updeslift.org/Account/login";
-const username = "8851503315";
-const password = "Rajagopalan@123";
+const username = "7078691466";
+const password = "Vish@123";
 const selectType = "Public";
 
 // Define types for the form data
@@ -159,7 +159,7 @@ let browser: Browser;
           i + 1
         } registration number ${registrationNumber}`
       );
-      // Sumit next forms
+      // Submit next forms
       await handleRegistrationForm(page, registrationNumber || "");
       await takePageScreenshot(page);
       await fillRegistrationStep2(page, formData);
@@ -398,7 +398,8 @@ async function listAllForms(page: Page) {
 
 async function addLiftPage(page: Page) {
   await page.goto("https://updeslift.org/User/Annexure_1");
-  await page.waitForSelector("#heading");
+  // Increase timeout to 60 seconds (60000ms)
+  await page.waitForSelector("#heading", { timeout: 60000 });
 }
 
 async function delay(ms: number): Promise<void> {
@@ -409,7 +410,15 @@ async function fillOwnerDetails(page: Page, data: LiftFormData) {
   console.log("Filling owner details...");
 
   // Owner Name
-  await page.type("#Annexure1s_OwnerName", data.ownerName);
+  const ownerNameInput = await page.$("#Annexure1s_OwnerName");
+  if (ownerNameInput) {
+    await ownerNameInput.evaluate(
+      (el) => ((el as HTMLInputElement).value = "")
+    );
+    await ownerNameInput.type(data.ownerName);
+  } else {
+    console.error("Owner name input element not found");
+  }
 
   // Local Address
   await page.type("#Annexure1s_OwnerLocalHouseNo", data.ownerLocalHouseNo);
@@ -451,7 +460,15 @@ async function fillOwnerDetails(page: Page, data: LiftFormData) {
   } else {
     console.error("Email input element not found");
   }
-  await page.type("#Annexure1s_OwnerMob", data.ownerMobile);
+  const ownerMobileInput = await page.$("#Annexure1s_OwnerMob");
+  if (ownerMobileInput) {
+    await ownerMobileInput.evaluate(
+      (el) => ((el as HTMLInputElement).value = "")
+    );
+    await ownerMobileInput.type(data.ownerMobile);
+  } else {
+    console.error("Owner mobile input element not found");
+  }
 
   // Click Save & Next
   await page.$eval("#nxt1", (el) => {
@@ -1066,11 +1083,15 @@ async function handleRegistrationForm(
     const regLink = await page.$(`h2.purple-text.text-center#finmsg a`);
     if (regLink) {
       // Goto to link src
-      const linkHref = await page.evaluate(
+      let linkHref = await page.evaluate(
         (el) => el.getAttribute("href"),
         regLink
       );
+      if (!linkHref.startsWith("https://updeslift.org/")) {
+        linkHref = `https://updeslift.org/${linkHref}`;
+      }
       if (linkHref) {
+        console.log(`Navigating to registration form: ${linkHref}`);
         await page.goto(linkHref);
         console.log(`Navigated to registration form: ${linkHref}`);
       } else {
