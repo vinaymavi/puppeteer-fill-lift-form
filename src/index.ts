@@ -5,8 +5,8 @@ import csv from "csv-parser";
 import path from "path";
 
 const loginUrl = "https://updeslift.org/Account/login";
-const username = "7078691466";
-const password = "Vish@123";
+const username = "8851503315";
+const password = "Rajagopalan@123";
 const selectType = "Public";
 
 // Define types for the form data
@@ -80,8 +80,19 @@ interface LiftFormData {
   authSignaturePath?: string;
   ownerSignaturePath?: string;
 
+  // New fields for registration step 2
+  inCaseThereIsAnyChangePath?: string;
+  selfDeclarationNotarizedAffidavitPath?: string;
+  affidavitCommissioningAgencyPath?: string;
+  affidavitOfTheManufacturerPath2?: string;
+  separateDeclarationsOnnotarizedPath?: string;
+  suggestiveUsefulLife?: string;
+
   // Registration number field
   registrationNumber?: string;
+
+  // Registration form completion status
+  registrationFormCompleted: boolean;
 }
 
 let browser: Browser;
@@ -142,22 +153,31 @@ let browser: Browser;
         console.log(`Registration number captured: ${registrationNumber}`);
       }
       await takePageScreenshot(page);
-
-      console.log(`Successfully completed form ${i + 1}`);
+      console.log(`Successfully completed first step for form ${i + 1}`);
+      console.log(
+        `Start second step for form ${
+          i + 1
+        } registration number ${registrationNumber}`
+      );
+      // Sumit next forms
+      await handleRegistrationForm(page, registrationNumber || "");
+      await takePageScreenshot(page);
+      await fillRegistrationStep2(page, formData);
+      await takePageScreenshot(page);
     } catch (error) {
       console.error(`Error processing form ${i + 1}:`, error);
       // Take a screenshot of the error state
       await takePageScreenshot(page, `error-form-${i + 1}`);
       // Continue with the next form
     }
-  }
 
-  // Write output CSV with registrations
-  if (successfulSubmissions.length > 0) {
-    await writeOutputCSV(successfulSubmissions);
-    console.log(
-      `Saved ${successfulSubmissions.length} registrations to lift_registrations.csv`
-    );
+    // Write output CSV with registrations
+    if (successfulSubmissions.length > 0) {
+      await writeOutputCSV(successfulSubmissions);
+      console.log(
+        `Saved ${successfulSubmissions.length} registrations to lift_registrations.csv`
+      );
+    }
   }
 
   // Close the browser
@@ -246,6 +266,21 @@ async function readFormDataFromCSV(
           manufacturerSignaturePath: data.manufacturerSignaturePath || "",
           authSignaturePath: data.authSignaturePath || "",
           ownerSignaturePath: data.ownerSignaturePath || "",
+
+          // New fields for registration step 2
+          inCaseThereIsAnyChangePath: data.inCaseThereIsAnyChangePath || "",
+          selfDeclarationNotarizedAffidavitPath:
+            data.selfDeclarationNotarizedAffidavitPath || "",
+          affidavitCommissioningAgencyPath:
+            data.affidavitCommissioningAgencyPath || "",
+          affidavitOfTheManufacturerPath2:
+            data.affidavitOfTheManufacturerPath2 || "",
+          separateDeclarationsOnnotarizedPath:
+            data.separateDeclarationsOnnotarizedPath || "",
+          suggestiveUsefulLife: data.suggestiveUsefulLife || "20",
+
+          // Registration form completion status
+          registrationFormCompleted: false,
         };
 
         results.push(formData);
@@ -900,6 +935,193 @@ async function fillAnnexureDetails(
 
   console.log("Annexure details filled and form submitted");
   return null;
+}
+
+// New function to fill the registration form step 2
+async function fillRegistrationStep2(
+  page: Page,
+  data: LiftFormData
+): Promise<void> {
+  console.log("Filling registration form step 2...");
+
+  // Check all three checkboxes at the top
+  await page.evaluate(() => {
+    // Check "The lift or escalator commissioned is of the same make and manufacturer..."
+    const checkbox1 = document.getElementById(
+      "LiftEescalatorCommissionedPath"
+    ) as HTMLInputElement;
+    if (checkbox1) checkbox1.checked = true;
+
+    // Check "The place of commissioning of the lift or escalator is same..."
+    const checkbox2 = document.getElementById(
+      "PlaceOfCommissioningPath"
+    ) as HTMLInputElement;
+    if (checkbox2) checkbox2.checked = true;
+
+    // Check "The commissioning agency is same as declared..."
+    const checkbox3 = document.getElementById(
+      "CommissioningAgencySamePath"
+    ) as HTMLInputElement;
+    if (checkbox3) checkbox3.checked = true;
+  });
+
+  // Upload "In case there is any change..." file if provided
+  if (data.separateDeclarationsPath) {
+    await uploadFile(
+      page,
+      "#InCaseThereIsAnyChange",
+      data.separateDeclarationsPath
+    );
+  }
+
+  // Upload "Self-declaration on notarized affidavit..." file if provided
+  if (data.affidavitOfManufacturerPath) {
+    await uploadFile(
+      page,
+      "#SelfDeclarationNotarizedAffidavit",
+      data.affidavitOfManufacturerPath
+    );
+  }
+
+  // Upload "Affidavit of the commissioning agency..." file if provided
+  if (data.affidavitOfManufacturerPath) {
+    await uploadFile(
+      page,
+      "#AffidavitCommissioningAgency",
+      data.affidavitOfManufacturerPath
+    );
+  }
+
+  // Upload "Affidavit of the manufacturer..." file if provided
+  if (data.affidavitOfManufacturerPath) {
+    await uploadFile(
+      page,
+      "#AffidavitOfTheManufacturer",
+      data.affidavitOfManufacturerPath
+    );
+  }
+
+  // Upload "Separate declarations on notarized affidavit..." file if provided
+  if (data.separateDeclarationsPath) {
+    await uploadFile(
+      page,
+      "#SeparateDeclarationsOnnotarized",
+      data.separateDeclarationsPath
+    );
+  }
+
+  // Fill in the "Suggestive useful life" input field (default to 20 years if not specified)
+  const suggestiveUsefulLife = data.suggestiveUsefulLife || "20";
+  await page.type("#SuggestiveUsefulLife", suggestiveUsefulLife);
+
+  // Select "Yes" for the owner/operator training question
+  await page.select("#WhethertheOwnerOperatorOfTheLift", "Yes");
+
+  // Wait for a moment to ensure all inputs are processed
+  await delay(2000);
+
+  // Take screenshot before clicking the final button
+  await takePageScreenshot(
+    page,
+    `step2-before-save-${data.registrationNumber}`
+  );
+
+  // Click the "Save & Finished" button
+  try {
+    // Make sure the button is in view
+    await page.$eval("#nxt2", (el) => {
+      (el as HTMLButtonElement).scrollIntoView();
+      (el as HTMLButtonElement).focus();
+    });
+    await delay(1000);
+
+    // Click the button and wait for navigation
+    await Promise.all([page.click("#nxt2")]);
+
+    // Take a screenshot after clicking
+    await takePageScreenshot(
+      page,
+      `registration-complete-${data.registrationNumber}`
+    );
+    console.log(
+      `Successfully completed registration form step 2 for ${data.registrationNumber}`
+    );
+  } catch (error) {
+    console.error("Error submitting registration form step 2:", error);
+    throw new Error(`Failed to complete registration form step 2: ${error}`);
+  }
+}
+
+// Updated handleRegistrationForm function to handle both steps
+async function handleRegistrationForm(
+  page: Page,
+  registrationNumber: string,
+  data: LiftFormData = {} as LiftFormData
+): Promise<void> {
+  console.log(`Opening registration form for ${registrationNumber}`);
+
+  // Click the registration number link
+  try {
+    // First try to click the direct link
+    const regLink = await page.$(`h2.purple-text.text-center#finmsg a`);
+    if (regLink) {
+      // Goto to link src
+      const linkHref = await page.evaluate(
+        (el) => el.getAttribute("href"),
+        regLink
+      );
+      if (linkHref) {
+        await page.goto(linkHref);
+        console.log(`Navigated to registration form: ${linkHref}`);
+      } else {
+        console.error("Registration link not found");
+      }
+    }
+  } catch (error) {
+    console.error(`Error clicking registration link: ${error}`);
+    throw new Error(`Failed to navigate to registration form: ${error}`);
+  }
+
+  // Wait for the form to load
+  await page.waitForSelector("#RegNo", { timeout: 10000 });
+
+  // Verify we're on the right form by checking the registration number field
+  const displayedRegNumber = await page.$eval(
+    "#RegNo",
+    (el) => (el as HTMLInputElement).value
+  );
+  if (displayedRegNumber !== registrationNumber) {
+    console.warn(
+      `Registration number mismatch: Expected ${registrationNumber}, found ${displayedRegNumber}`
+    );
+  }
+
+  // Take a screenshot of the form
+  await takePageScreenshot(page, `registration-form-${registrationNumber}`);
+
+  // Click the Save & Next button
+  try {
+    // Make sure the button is in view
+    await page.$eval("#nxt1", (el) => {
+      (el as HTMLButtonElement).scrollIntoView();
+      (el as HTMLButtonElement).focus();
+    });
+    await delay(500);
+
+    // Click the button and wait for navigation
+    await Promise.all([page.click("#nxt1")]);
+
+    await delay(500);
+
+    // Take a screenshot after clicking
+    await takePageScreenshot(
+      page,
+      `registration-form-next-${registrationNumber}`
+    );
+  } catch (error) {
+    console.error(`Error completing registration form: ${error}`);
+    throw new Error(`Failed to complete registration form: ${error}`);
+  }
 }
 
 // Function to write registration data to CSV
